@@ -1,52 +1,78 @@
 (ns org-project.core
   (:require [clojure.string :as string]))
 
-(defn split-by-headers [text]
+(defn split-by-headers
+  "Splits a document fed in as a single string on org-mode headers."
+  [text]
   (let [pattern #"(?<=\n)(?=\*+ )"]
-    (->> (clojure.string/split text pattern)
-         (remove clojure.string/blank?)
+    (->> (string/split text pattern)
+         (remove string/blank?)
          (map #(string/trim %)))))
 
 ;; (def org-file (parse (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
 (def org-file (split-by-headers (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
 
-(defn key-prefix [line]
-  (let [index (string/index-of line " ")
-        eol (string/index-of line "\n")]
-    (cond  (and (nil? eol) (nil? index)) (keyword (string/lower-case line))
-           (or (and (nil? index) eol) (and (and index eol) (> index eol))) (keyword (string/lower-case (subs line 0 eol)))
-           :else (keyword (string/lower-case (subs line 0 index))))))
+(defn old-key-prefix
+  "Determines the keyword for org-mode directives or section headings."
+  [line]
+  (let [trimmed (clojure.string/trim line)
+        section-pattern #"^(\*+)\s"
+        directive-pattern #"^\#\+([a-zA-Z_]+):"]
+    (cond
+      (re-find section-pattern trimmed)
+      (->> trimmed
+           (re-find section-pattern)
+           first
+           clojure.string/lower-case
+           keyword)
 
-(defn remove-prefix [line]
-  (let [index (string/index-of line " ")]
+      (re-find directive-pattern trimmed)
+      (->> trimmed
+           (re-find directive-pattern)
+           second
+           clojure.string/lower-case
+           keyword)
+
+      :else :string)))
+
+(defn key-prefix
+  "Determines the keyword for org-mode directives or section headings."
+  [line]
+  (let [trimmed (clojure.string/trim line)
+        section-pattern #"^(\*+)\s.*" ; Match only asterisks at the beginning
+        directive-pattern #"^\#\+([a-zA-Z_]+):.*"] ; Match only the directive name
+    (cond
+      (re-find section-pattern trimmed)
+      (->> trimmed
+           (re-find section-pattern)
+           second ; Get the group of asterisks
+           clojure.string/lower-case
+           keyword)
+
+      (re-find directive-pattern trimmed)
+      (->> trimmed
+           (re-find directive-pattern)
+           second ; Get the group with the directive name
+           clojure.string/lower-case
+           keyword)
+
+      :else :string)))
+
+
+
+(defn remove-prefix
+  "Removed the prefix from the string and return the result. This is usually org-mode that needs to still be parsed."
+  [line]
+  (let [trimmed (string/trim line)
+        index (string/index-of trimmed " ")]
     (if (nil? index)
-      line
-      (subs line (inc index)))))
+      trimmed
+      (subs trimmed (inc index)))))
 
 (defn split-line [line]
   (let [index (string/index-of line "\n")]
     (if index
       (list (subs line 0 index) (subs line (inc index))))))
-
-(defn orig-get-properties [line]
-  (let [begin ":PROPERTIES:"
-        end ":END:"
-        start-index (+ (count begin) (string/index-of line begin))
-        end-index (string/index-of line end)
-        content-index (+ (count end) end-index)]
-    (when (> start-index end-index)
-      (throw (Throwable. "MALFORMED PROPERTIES")))
-    (let [props-string (string/trim (subs line start-index end-index))
-          props (-> props-string
-                    (string/split #"\n")
-                    ((fn [x]
-                       (map #(string/split % #" ") x)))
-                    ((fn [x]
-                       (map (fn [y] [(-> (first y)
-                                         string/lower-case
-                                         (string/replace #":" "")
-                                         keyword) (second y)]) x))))]
-      (assoc (into (sorted-map) props) :content (string/trim (subs line content-index))))))
 
 (defn parse-property-line [line]
   (let [parts (string/split line #" ")]
@@ -85,8 +111,10 @@
 
 (defmethod hiccupify :* [block]
   (let [section (split-line block)
-        heading (remove-prefix (first section))]
-    [:div {:class "section-1" :id heading} [:h1 heading] (hiccupify (second section))]))
+        heading (remove-prefix (first section))
+        content-with-props (get-properties (second section))]
+    [:div {:class "section-1" :id heading} [:h1 heading]
+     ]))
 
 (defmethod hiccupify :** [block]
   (let [section (split-line block)
@@ -98,6 +126,12 @@
         heading (remove-prefix (first section))]
     [:div {:class "section-1" :id heading} [:h3 heading] (hiccupify (second section))]))
 
+(defmethod hiccupify :properties [block]
+  (handle-properties block))
 
-(defmethod hiccupify :default [block]
+(defmethod hiccupify :string [block]
   [:p block])
+
+(defmethod hiccupify :default
+  [block]
+  (str "<!-- " block "-->"))
