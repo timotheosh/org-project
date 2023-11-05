@@ -2,4 +2,13 @@
 :PROPERTIES:
 :CUSTOM_ID: org-project
 :END:
-Org parser written in Clojure
+** What is this?
+Yet another Org parser written in Clojure. This is not (originally) meant to be an exhaustive parser. Until a public authoritative spec can be put out defining the org-mode format, I have no aspirations to write an exhaustive parser. This is an org-mode to hiccup parser, so it is biased toward that end. Most websites do not contain artifacts from people's schedules and todo lists. This parser is most interested in the space of static site generation for a website that is a bit more sophisticated than a blog.
+** What makes this different?
+I'm not satisifed with the results from previous parsers to hiccup/html. Many of them make multiple passes of a file's data without any regard to org-mode's heirarchical structure. Plus most of them ignore org delimiters such as ~#+HTML~, ~:PROPERTIES:~, ~#+CAPTION:~, and many others designed to inform how HTML ought to be generated from the file.
+
+Truth be told, I was perfectly happy with ~org-publish~, until one of my projects grew exponentially, and ~org-publish~ would take minutes to generate the entire site, even after some of the most minute changes to a single page. So this project is my quest to speed up the HTML generation from my org-files. Knowing that ~org-publish~ could not be a long-term solution, I began a quest to solve the problem in Clojure. This project is that quest.
+
+First, org-project will split the org-mode file by section, and then use multi-dispatch with Clojure's ~defmulti~ to handle parsing the file. Since each heirarchical section is handled as a whole, ~:HTML_HEADLINE_CLASS:~ should give a section heading that value, ~#+CAPTION:~'s should be added to images, as well as alt tags and other data in ~#+ATTR_HTML:~ lines.
+** What this is not?
+This is not particularly suited for blogs. Not yet, anyways. I have no plans of adding source code formatting for posting in tech blogs, as my current web site project is not a tech blog project. That could change, but no promises.
