@@ -1,0 +1,5 @@
+* org-project
+:PROPERTIES:
+:CUSTOM_ID: org-project
+:END:
+Org parser written in Clojure
