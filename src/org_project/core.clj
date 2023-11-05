@@ -12,29 +12,6 @@
 ;; (def org-file (parse (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
 (def org-file (split-by-headers (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
 
-(defn old-key-prefix
-  "Determines the keyword for org-mode directives or section headings."
-  [line]
-  (let [trimmed (clojure.string/trim line)
-        section-pattern #"^(\*+)\s"
-        directive-pattern #"^\#\+([a-zA-Z_]+):"]
-    (cond
-      (re-find section-pattern trimmed)
-      (->> trimmed
-           (re-find section-pattern)
-           first
-           clojure.string/lower-case
-           keyword)
-
-      (re-find directive-pattern trimmed)
-      (->> trimmed
-           (re-find directive-pattern)
-           second
-           clojure.string/lower-case
-           keyword)
-
-      :else :string)))
-
 (defn key-prefix
   "Determines the keyword for org-mode directives or section headings."
   [line]
