@@ -13,11 +13,12 @@
 (def org-file (split-by-headers (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
 
 (defn key-prefix
-  "Determines the keyword for org-mode directives or section headings."
+  "Determines the keyword for org-mode directives or special block beginnings."
   [line]
   (let [trimmed (clojure.string/trim line)
         section-pattern #"^(\*+)\s.*" ; Match only asterisks at the beginning
-        directive-pattern #"^\#\+([a-zA-Z_]+):.*"] ; Match only the directive name
+        directive-pattern #"^\#\+([a-zA-Z_]+):.*"
+        block-begin-pattern #"^\#\+(begin_[a-z_]+)"]
     (cond
       (re-find section-pattern trimmed)
       (->> trimmed
@@ -33,20 +34,28 @@
            clojure.string/lower-case
            keyword)
 
+      (re-find block-begin-pattern trimmed)
+      (->> trimmed
+           (re-find block-begin-pattern)
+           second
+           clojure.string/lower-case
+           keyword)
+
       :else :string)))
-
-
 
 (defn remove-prefix
   "Removed the prefix from the string and return the result. This is usually org-mode that needs to still be parsed."
   [line]
-  (let [trimmed (string/trim line)
-        index (string/index-of trimmed " ")]
-    (if (nil? index)
-      trimmed
-      (subs trimmed (inc index)))))
+  (-> line
+      string/trim
+      (string/replace #"\#\+[a-zA-Z]+_?[a-zA-Z]+:"  "")
+      (string/replace #"\*+" "")
+      string/trim))
 
-(defn split-line [line]
+
+(defn split-line
+  "Splits a line on the first line-feed"
+  [line]
   (let [index (string/index-of line "\n")]
     (if index
       (list (subs line 0 index) (subs line (inc index))))))
@@ -72,6 +81,17 @@
       (let [props-string (string/trim (subs line start-index end-index))
             content (string/trim (subs line (+ end-index (count end))))]
         (assoc {:props (extract-properties props-string)} :content content)))))
+
+(defn handle-block
+  "Function for handling org blocks."
+  [directive block]
+  (let [begin (str "#+" (name directive))
+        end (str "#+" (string/replace (name directive) #"begin" "end"))
+        begin-index (string/index-of block begin)
+        end-index (string/index-of block end)]
+    {directive (string/trim (subs block (+ (count begin) begin-index)
+                                  end-index))
+     :block (string/trim (subs block (+ (count end) end-index)))}))
 
 (defmulti handle-properties
   (fn [props]
@@ -105,6 +125,10 @@
 
 (defmethod hiccupify :properties [block]
   (handle-properties block))
+
+(defmethod hiccupify :begin_quote
+  [block]
+  (handle-block :begin_quote block))
 
 (defmethod hiccupify :string [block]
   [:p block])

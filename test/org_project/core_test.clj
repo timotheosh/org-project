@@ -27,6 +27,11 @@
     (is (= (key-prefix "# Not a directive") :string))
     (is (= (key-prefix "****Not a section because of the missing space") :string)))
 
+  (testing "special block beginnings"
+    (is (= (key-prefix "#+begin_quote") :begin_quote))
+    (is (= (key-prefix "#+begin_example") :begin_example))
+    (is (= (key-prefix "#+begin_src clojure") :begin_src)))
+
   (testing "empty lines"
     (is (= (key-prefix "") :string))
     (is (= (key-prefix " ") :string)))
@@ -34,3 +39,17 @@
   (testing "lines with only whitespace before directive or heading"
     (is (= (key-prefix "  #+options: toc:nil") :options))
     (is (= (key-prefix "   * Whitespace before heading") :*))))
+
+(deftest test-remove-prefix
+  (testing "org directives"
+    (is (= (remove-prefix "#+attr_html: :id pic-banner :alt Bellgrald") ":id pic-banner :alt Bellgrald"))
+    (is (= (remove-prefix "#+HTML: <button type=\"button\" class=\"collapsible\">") "<button type=\"button\" class=\"collapsible\">"))
+    (is (= (remove-prefix "#+ATTR_HTML: :id pic-banner :alt Vaabhath") ":id pic-banner :alt Vaabhath")))
+  (testing "section headers"
+    (is (= (remove-prefix "* Section 1") "Section 1"))
+    (is (= (remove-prefix "**** Section 4") "Section 4"))
+    (is (= (remove-prefix "*** Section 3\nLorem Ipso") "Section 3\nLorem Ipso"))))
+
+(deftest test-split-line
+  (testing "splitting lines only once"
+    (is (= (split-line "* Section 1\nLorem Ipso.\nNam a sapien.") '("* Section 1" "Lorem Ipso.\nNam a sapien.")))))
