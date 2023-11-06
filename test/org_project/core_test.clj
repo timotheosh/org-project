@@ -53,3 +53,30 @@
 (deftest test-split-line
   (testing "splitting lines only once"
     (is (= (split-line "* Section 1\nLorem Ipso.\nNam a sapien.") '("* Section 1" "Lorem Ipso.\nNam a sapien.")))))
+
+(deftest test-parse-property-line
+  (testing "testing parse-property-line"
+    (is (= (parse-property-line ":HTML_HEADLINE_CLASS: absent") {:html_headline_class "absent"}))
+    (is (= (parse-property-line ":category: Places") {:category "Places"}))))
+
+(deftest test-extract-properties
+  (testing "testing extract properties"
+    (is (= (extract-properties ":HTML_HEADLINE_CLASS: absent")
+           [{:html_headline_class "absent"}]))
+    (is (= (extract-properties ":HTML_HEADLINE_CLASS: absent\n:CATEGORY: Places")
+           [{:html_headline_class "absent"} {:category "Places"}]))))
+
+(deftest test-get-properties
+  (testing "test get-properties"
+    (is (= (get-properties ":PROPERTIES:\n:HTML_HEADLINE_CLASS: absent\n:END:\n#+caption: Main port of the city")
+           {:props [{:html_headline_class "absent"}],
+            :content "#+caption: Main port of the city"}))))
+
+
+(deftest test-handle-blocks
+  (testing "test handle-blocks"
+    (is (= (handle-block :begin_quote "#+begin_quote\nPower corrupts?\n--Lord Acton\n#+end_quote\nAliquam posuere.  ")
+           {:begin_quote "Power corrupts?\n--Lord Acton", :block "Aliquam posuere."}))
+    (is (= (handle-block :begin_quote "#+BEGIN_QUOTE\nTo be or not to be?\n--Shakespeare\n#+END_QUOTE\nDonec posuere augue in quam.  ")
+           {:begin_quote "To be or not to be?\n--Shakespeare",
+            :block "Donec posuere augue in quam."}))))

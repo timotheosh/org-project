@@ -60,17 +60,23 @@
     (if index
       (list (subs line 0 index) (subs line (inc index))))))
 
-(defn parse-property-line [line]
+(defn parse-property-line
+  "Simple transform a property naem into a clojure keyword with its value."
+  [line]
   (let [parts (string/split line #" ")]
     {(keyword (string/replace (string/lower-case (first parts)) #":" ""))
      (second parts)}))
 
-(defn extract-properties [props-string]
+(defn extract-properties
+  "Extracts the properties from a block-string."
+  [props-string]
   (->> (string/split props-string #"\n")
        (map parse-property-line)
        (into [])))
 
-(defn get-properties [line]
+(defn get-properties
+  "Main function for parsing properties from a line"
+  [line]
   (let [begin ":PROPERTIES:"
         end ":END:"
         start-index (when-let [index (string/index-of line begin)]
@@ -87,8 +93,8 @@
   [directive block]
   (let [begin (str "#+" (name directive))
         end (str "#+" (string/replace (name directive) #"begin" "end"))
-        begin-index (string/index-of block begin)
-        end-index (string/index-of block end)]
+        begin-index (string/index-of (string/lower-case block) begin)
+        end-index (string/index-of (string/lower-case block) end)]
     {directive (string/trim (subs block (+ (count begin) begin-index)
                                   end-index))
      :block (string/trim (subs block (+ (count end) end-index)))}))
