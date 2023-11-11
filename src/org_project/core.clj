@@ -58,7 +58,9 @@
 
 (defn handle-string
   [block]
-  [:p block])
+  (->> (string/split block #"\n")
+       (filter not-empty)
+       (mapv (fn[x] [:p x]))))
 
 (defn handle-default
   [block]
@@ -70,7 +72,7 @@
     :title (handle-title block)
     :section (handle-section block)
     :directive (handle-directive block)
-    ;;:image (handle-image {:img block})
+    :image (handle-image {:img block})
     :string (handle-string block)
     (handle-default block)))
 

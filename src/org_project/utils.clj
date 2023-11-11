@@ -162,3 +162,32 @@
                        [(keyword key) value]))
         dir-map (into [] (comp (map parse-line) (remove nil?)) (string/split block #"\n"))]
     (into {} (map filters-for-directives dir-map))))
+
+(defn parse-link
+  "Generates the appropriate hiccup for HTML links"
+  [link]
+  (let [data
+        (->> (string/split link #"\]\[")
+             (map (fn [x]
+                    (-> x
+                        (string/replace "[" "")
+                        (string/replace "]" "")))))]
+    [:a {:href (string/replace (first data) #"\.org$" ".html")} (second data)]))
+
+(defn parse-paragraph [text]
+  (-> text
+      (clojure.string/replace #"\[\[(.*?)\]\[(.*?)\]\]"
+                              (fn [[_ url label]] [:a {:href url} label]))
+      (clojure.string/replace #"\*(.*?)\*"
+                              (fn [[_ content]] [:em content]))
+      (clojure.string/replace #"\_(.*?)\_"
+                              (fn [[_ content]] [:strong content]))
+      (clojure.string/replace #"\~(.*?)\~"
+                              (fn [[_ content]] [:code content]))))
+
+
+(def link-regex #"\[\[(.*?)\]\[(.*?)\]\]")
+
+
+(defn parse-link [url label]
+  [:a {:href (string/replace url #"\.org$" ".html")} label])
