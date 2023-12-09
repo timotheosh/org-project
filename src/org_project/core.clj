@@ -2,9 +2,13 @@
   (:require [clojure.string :as string]
             [org-project.utils :as u]))
 
-(def org-file (u/split-by-headers (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org")))
+(def org-file (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/index.org"))
+(def vulwin (slurp "/home/thawes/org-files/Projects/naurrnen-website/src/Nations/Vulwin Horde.org"))
 
 (declare parse-content)
+(declare handle-string)
+
+(def document (atom []))
 
 (defn handle-title
   [block]
@@ -33,10 +37,9 @@
   ([object]
    (let [image-data object]
      (into [] (remove nil?
-                      [:div {:class "figure"}
-                       [:p [:img (:attr_html image-data) (:img image-data) ]]
+                      [:figure [:img (:attr_html image-data) (:img image-data) ]
                        (when (:caption image-data)
-                         [:p {:class "caption"} (:caption image-data)])])))))
+                         [:figcaption {:class "caption"} (:caption image-data)])])))))
 
 (defn handle-directive
   [block]
@@ -52,15 +55,16 @@
                                       (parse-content (string/trim (subs rest-block (string/index-of rest-block "\n"))))])
     ))
 
-(defn handle-quote
-  [block]
-  (u/handle-block :begin_quote block))
-
 (defn handle-string
   [block]
-  (->> (string/split block #"\n")
-       (filter not-empty)
-       (mapv (fn[x] [:p x]))))
+  (mapv (fn [line] (vec (cons :p (u/parse-paragraph line))))
+        (filter not-empty (string/split block #"\n"))))
+
+(defn handle-quote
+  [block]
+  (let [[quote remaining] (u/handle-block :begin_quote block)
+        quoted-paragraphs (string/split quote #"\n")]
+    [[:blockquote (mapv handle-string quoted-paragraphs)] (handle-string remaining)]))
 
 (defn handle-default
   [block]
@@ -73,13 +77,14 @@
     :section (handle-section block)
     :directive (handle-directive block)
     :image (handle-image {:img block})
+    :begin_quote (handle-quote block)
     :string (handle-string block)
     (handle-default block)))
 
 (defn harness [block]
-  block)
+block)
 
 (defn hiccupify
-  [document]
-  (let [sections (u/split-by-headers document)]
-    (map parse-content sections)))
+[document]
+(let [sections (u/split-by-headers document)]
+  (map parse-content sections)))

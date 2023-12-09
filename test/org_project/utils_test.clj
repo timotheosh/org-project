@@ -28,9 +28,9 @@
     (is (= (key-prefix "****Not a section because of the missing space") :string)))
 
   (testing "special block beginnings"
-    (is (= (key-prefix "#+begin_quote") :begin_quote))
-    (is (= (key-prefix "#+begin_example") :begin_example))
-    (is (= (key-prefix "#+begin_src clojure") :begin_src)))
+    (is (= (key-prefix "#+begin_quote\n") :begin_quote))
+    (is (= (key-prefix "#+begin_example\n") :begin_example))
+    (is (= (key-prefix "#+begin_src clojure\n") :begin_src)))
 
   (testing "empty lines"
     (is (= (key-prefix "") :string))
@@ -84,7 +84,6 @@
 (deftest test-handle-blocks
   (testing "test handle-blocks"
     (is (= (handle-block :begin_quote "#+begin_quote\nPower corrupts?\n--Lord Acton\n#+end_quote\nAliquam posuere.  ")
-           {:begin_quote "Power corrupts?\n--Lord Acton", :block "Aliquam posuere."}))
+           ["Power corrupts?\n--Lord Acton", "Aliquam posuere."]))
     (is (= (handle-block :begin_quote "#+BEGIN_QUOTE\nTo be or not to be?\n--Shakespeare\n#+END_QUOTE\nDonec posuere augue in quam.  ")
-           {:begin_quote "To be or not to be?\n--Shakespeare",
-            :block "Donec posuere augue in quam."}))))
+           ["To be or not to be?\n--Shakespeare", "Donec posuere augue in quam."]))))

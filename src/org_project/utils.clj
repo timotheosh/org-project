@@ -14,35 +14,42 @@
     (when (re-find m)
       (.start m))))
 
+(defn re-indexes-of [regex s]
+  (let [m (re-matcher regex s)]
+    (when (re-find m)
+      {:start (.start m)
+       :end (.end m)})))
+
 (defn key-prefix
   "Determines the keyword for org-mode directives or special block beginnings."
   [line]
-  (let [trimmed (clojure.string/trim line)
-        title-pattern #"^\#\+(title|TITLE):.*"
-        section-pattern #"^(\*+)\s.*" ; Match only asterisks at the beginning
-        directive-pattern #"^\#\+([a-zA-Z_]+):.*"
-        block-begin-pattern #"^\#\+(begin_[a-z_]+)"]
-    (cond
-      (re-find title-pattern trimmed)
-      :title
+  (when (not-empty line)
+    (let [trimmed (clojure.string/trim line)
+          title-pattern #"^\#\+(title|TITLE):.*"
+          section-pattern #"^(\*+)\s.*" ; Match only asterisks at the beginning
+          directive-pattern #"^\#\+([a-zA-Z_]+):.*"
+          block-begin-pattern #"^\#\+(BEGIN_[A-Z_]+|begin_[a-z_]+)"]
+      (cond
+        (re-find title-pattern trimmed)
+        :title
 
-      (re-find section-pattern trimmed)
-      :section
+        (re-find section-pattern trimmed)
+        :section
 
-      (re-find directive-pattern trimmed)
-      :directive
+        (re-find directive-pattern trimmed)
+        :directive
 
-      (= line "image")
-      :image
+        (= line "image")
+        :image
 
-      (re-find block-begin-pattern trimmed)
-      (->> trimmed
-           (re-find block-begin-pattern)
-           second
-           clojure.string/lower-case
-           keyword)
+        (re-find block-begin-pattern trimmed)
+        (->> trimmed
+             (re-find block-begin-pattern)
+             second
+             clojure.string/lower-case
+             keyword)
 
-      :else :string)))
+        :else :string))))
 
 (defn remove-prefix
   "Removed the prefix from the string and return the result. This is usually org-mode that needs to still be parsed."
@@ -110,84 +117,92 @@
         (assoc {:props (extract-properties props-string)} :content content)))))
 
 (defn handle-block
-  "Function for handling org blocks."
+  "Function for handling org blocks. Returns a vector of two values, first is the block content, the second is the rest of the string following the block content."
   [directive block]
   (let [begin (str "#+" (name directive))
         end (str "#+" (string/replace (name directive) #"begin" "end"))
         begin-index (string/index-of (string/lower-case block) begin)
         end-index (string/index-of (string/lower-case block) end)]
-    {directive (string/trim (subs block (+ (count begin) begin-index)
-                                  end-index))
-     :block (string/trim (subs block (+ (count end) end-index)))}))
+    [(string/trim (subs block (+ (count begin) begin-index)
+                        end-index))
+     (string/trim (subs block (+ (count end) end-index)))]))
 
 (defn image-link?
-  [block]
-  (re-find #"\[\[.*?\.(png|jpg|webp)\]\]" block))
+[block]
+(re-find #"\[\[.*?\.(png|jpg|webp)\]\]" block))
 
 (defn link?
-  [block]
-  (re-find #"\[\[.*?\]\[.*?\]\]" block))
+[block]
+(re-find #"\[\[.*?\]\[.*?\]\]" block))
 
 (defn parse-attr-string
-  "This parses an #+ATTR_HTML: line for hiccup.
+"This parses an #+ATTR_HTML: line for hiccup.
   ChatGPT generated this function (after I suggested a fitting strategy). Be very afraid!
   this:
   #+HTML_ATTR: :id SomeID :alt This is a picture of a door :width 100%
   looks deceptively similar to a Clojure map, but is not easily converted into a representative map.
   We have to split on keywords, not spaces."
-  [attr-string]
-  (let [attr-parts (-> attr-string
-                       (clojure.string/split #":"))  ;; Split the string on ':'
-        attr-map (reduce (fn [attrs-map part]
-                           (let [parts (clojure.string/split part #" " 2) ;; Each string is prefixed with it's keyword.
-                                 key (keyword (first parts))
-                                 value (second parts)]
-                             (if (nil? (get attrs-map key))
-                               (assoc attrs-map key value)
-                               (update attrs-map key #(str % " :" (clojure.string/trim part))))))
-                         {}
-                         (rest attr-parts))]
-    (into {} (map (fn [[k v]] [k (clojure.string/trim v)]) attr-map))))
+[attr-string]
+(let [attr-parts (-> attr-string
+                     (clojure.string/split #":"))  ;; Split the string on ':'
+      attr-map (reduce (fn [attrs-map part]
+                         (let [parts (clojure.string/split part #" " 2) ;; Each string is prefixed with it's keyword.
+                               key (keyword (first parts))
+                               value (second parts)]
+                           (if (nil? (get attrs-map key))
+                             (assoc attrs-map key value)
+                             (update attrs-map key #(str % " :" (clojure.string/trim part))))))
+                       {}
+                       (rest attr-parts))]
+  (into {} (map (fn [[k v]] [k (clojure.string/trim v)]) attr-map))))
 
 (defn filters-for-directives [directive]
-  (let [the-key (first directive)]
-    (cond (= the-key :caption) directive
-          (= the-key :attr_html) [the-key (parse-attr-string (second directive))])))
+(let [the-key (first directive)]
+  (cond (= the-key :caption) directive
+        (= the-key :attr_html) [the-key (parse-attr-string (second directive))])))
 
 (defn filter-directives
-  "Filters directives that we do support."
-  [block]
-  (let [parse-line (fn [line]
-                     (when-let [[_ key value] (re-matches #"\A#\+(.*?):\s*(.*)\z" line)]
-                       [(keyword key) value]))
-        dir-map (into [] (comp (map parse-line) (remove nil?)) (string/split block #"\n"))]
-    (into {} (map filters-for-directives dir-map))))
+"Filters directives that we do support."
+[block]
+(let [parse-line (fn [line]
+                   (when-let [[_ key value] (re-matches #"\A#\+(.*?):\s*(.*)\z" line)]
+                     [(keyword key) value]))
+      dir-map (into [] (comp (map parse-line) (remove nil?)) (string/split block #"\n"))]
+  (into {} (map filters-for-directives dir-map))))
 
-(defn parse-link
-  "Generates the appropriate hiccup for HTML links"
+(defn handle-link
+"Special formatting for org links."
   [link]
-  (let [data
-        (->> (string/split link #"\]\[")
-             (map (fn [x]
-                    (-> x
-                        (string/replace "[" "")
-                        (string/replace "]" "")))))]
-    [:a {:href (string/replace (first data) #"\.org$" ".html")} (second data)]))
+  (-> link
+      (string/replace #"^file:" "")
+      (string/replace #"\.org$" ".html")
+      (string/replace #"\.org::[\*]+" ".html#")))
 
-(defn parse-paragraph [text]
-  (-> text
-      (clojure.string/replace #"\[\[(.*?)\]\[(.*?)\]\]"
-                              (fn [[_ url label]] [:a {:href url} label]))
-      (clojure.string/replace #"\*(.*?)\*"
-                              (fn [[_ content]] [:em content]))
-      (clojure.string/replace #"\_(.*?)\_"
-                              (fn [[_ content]] [:strong content]))
-      (clojure.string/replace #"\~(.*?)\~"
-                              (fn [[_ content]] [:code content]))))
+(defn parse-paragraph
+  "This handles the minor descrepencies within a normal paragraph. Results are recursive for handling nested directives."
+  [text]
+  (loop [remaining text
+         result []]
+    (cond
+      (re-find #"\[\[(.*?)\]\[(.*?)\]\]" remaining)
+      (let [[_ before url label after] (re-find #"(.*?)\[\[(.*?)\]\[(.*?)\]\](.*)" remaining)]
+        (recur after (conj result before [:a {:href (handle-link url)} (parse-paragraph label)])))
 
+      (re-find #"\*(.*?)\*" remaining)
+      (let [[_ before bold after] (re-find #"(.*?)\*(.*?)\*(.*)" remaining)]
+        (recur after (conj result before [:strong (parse-paragraph bold)])))
 
-(def link-regex #"\[\[(.*?)\]\[(.*?)\]\]")
+      (re-find #"/(.*?)/" remaining)
+      (let [[_ before italic after] (re-find #"(.*?)\/(.*?)\/(.*)" remaining)]
+        (recur after (conj result before [:em (parse-paragraph italic)])))
 
+      (re-find #"~(.*?)~" remaining)
+      (let [[_ before literal after] (re-find #"(.*?)~(.*?)~(.*)" remaining)]
+        (recur after (conj result before [:code (parse-paragraph literal)])))
 
-(defn parse-link [url label]
-  [:a {:href (string/replace url #"\.org$" ".html")} label])
+      (re-find #"_(.*?)_" remaining)
+      (let [[_ before underscore after] (re-find #"(.*?)_(.*?)_(.*)" remaining)]
+        (recur after (conj result before [:span {:style "text-decoration: underline;"} (parse-paragraph underscore)])))
+
+      :else
+      (conj (into [] (remove empty? result)) remaining))))
